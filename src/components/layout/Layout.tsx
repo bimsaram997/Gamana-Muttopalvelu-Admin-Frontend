@@ -12,6 +12,7 @@ import {
     Button,
     Divider,
 } from "@mui/material";
+import { useAuth } from "../../hooks/useAuth";
 
 const DRAWER_WIDTH = 240;
 
@@ -27,11 +28,10 @@ export default function Layout() {
     const navigate = useNavigate();
     const location = useLocation(); //give currentt URL
 
+    const { user, logout } = useAuth();   // 👈 pull user + logout from context
+
     const handleLogout = () => {
-        // Clear any authentication tokens or user data here
-        // For example, localStorage.removeItem('authToken');
-        // Then navigate to the login page
-        localStorage.removeItem("token");
+        logout();                            // 👈 updates context + clears storage
         navigate("/login");
     };
 
@@ -42,9 +42,18 @@ export default function Layout() {
                     <Typography variant="h6" noWrap>
                         Gamanamuutto Admin
                     </Typography>
-                    <Button color="inherit" onClick={handleLogout}>
-                        Logout
-                    </Button>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        {/* Show logged-in user's name */}
+                        {user && (
+                            <Typography variant="body2" sx={{ opacity: 0.85 }}>
+                                {user.name}
+                            </Typography>
+                        )}
+                        <Button color="inherit" onClick={handleLogout}>
+                            Logout
+                        </Button>
+                    </Box>
+
                 </Toolbar>
             </AppBar>
 
