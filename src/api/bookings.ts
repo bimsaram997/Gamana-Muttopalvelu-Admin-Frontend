@@ -1,14 +1,13 @@
-import type { Booking } from "../types/booking";
+import type { Booking, BookingQueryParams } from "../types/booking";
 import type { PagedResponse } from "../types/general";
 import { api } from "./axios";
 
 export async function getAllBookings(
-  pageNumber: number = 1,
-  pageSize: number = 6,
+   params: BookingQueryParams,
   signal?: AbortSignal
 ): Promise<PagedResponse<Booking>> {
   const response = await api.get<PagedResponse<Booking>>("/bookings", {
-    params: { pageNumber, pageSize },
+    params,
     signal,                                  // allows cancellation
   });
   return response.data;

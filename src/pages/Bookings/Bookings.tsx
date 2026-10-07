@@ -1,83 +1,174 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  TableContainer,
-  Paper,
-  CircularProgress,
-  Alert,
-  Chip,
   Menu,
   MenuItem,
-  IconButton,
+  CircularProgress,
+  Alert,
   Snackbar,
-  TablePagination,
-  Button,
 } from "@mui/material";
-import MoreVertIcon from "@mui/icons-material/MoreVert";
 import { getAllBookings, updateBookingStatus } from "../../api/bookings";
+import { getAllPackages, getPackageTitle } from "../../api/packages";
 import type { Booking } from "../../types/booking";
+import type { AdminPackage } from "../../types/package";
+import { useDebounce } from "../../hooks/useDebounce";
+import BookingsFilters, { type FiltersState } from "./BookingsFilters";
+import BookingsTable from "./BookingsTable";
 
-import AddIcon from "@mui/icons-material/Add"; // Optional icon
+const EMPTY_FILTERS: FiltersState = {
+  searchTerm: "",
+  status: "",
+  serviceDate: "",
+  selectedPackageId: "",
+};
 
-
-
-
-// ---- Main page ----
 export default function Bookings() {
   const navigate = useNavigate();
 
+  // ---- Data ----
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // ---- Pagination state ----
-  const [page, setPage] = useState(0);        // MUI is 0-based
-  const [pageSize, setPageSize] = useState(6); // matches backend default
+  // ---- Filters ----
+  // `draft` = what the user is editing in the UI
+  // `applied` = what was submitted with the Search button
+  // Search term is excluded from `applied` — it flows through the debounce
+  // directly into the fetch effect for a live-search feel.
+  const [draft, setDraft] = useState<FiltersState>(EMPTY_FILTERS);
+  const [applied, setApplied] = useState<FiltersState>(EMPTY_FILTERS);
+
+  const debouncedRaw = useDebounce(draft.searchTerm, 400);
+  const debouncedSearch = draft.searchTerm === "" ? "" : debouncedRaw;
+
+  // ---- Pagination ----
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(6);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Menu anchor state — stores the DOM element the menu is attached to
+  // ---- Packages dropdown ----
+  const [packages, setPackages] = useState<AdminPackage[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+
+  // ---- Menu / Snackbar ----
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [menuBooking, setMenuBooking] = useState<Booking | null>(null);
-
-  // Snackbar for feedback
   const [snack, setSnack] = useState<string | null>(null);
-  // ---- Fetch on mount and whenever page/pageSize changes ----
+
+  // ============================================================
+  // Load packages once
+  // ============================================================
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setPackagesLoading(true);
+        const data = await getAllPackages();
+        if (!cancelled) setPackages(data);
+      } catch {
+        if (!cancelled) setPackages([]);
+      } finally {
+        if (!cancelled) setPackagesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ============================================================
+  // Fetch bookings whenever search / applied filters / paging change
+  // ============================================================
   useEffect(() => {
     const controller = new AbortController();
 
-    async function load() {
+    (async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // MUI page is 0-based, API is 1-based → add 1
-        const res = await getAllBookings(page + 1, pageSize, controller.signal);
+        const res = await getAllBookings(
+          {
+            searchTerm: debouncedSearch || undefined,       // 👈 live search
+            status: applied.status || undefined,            // 👈 click-to-apply
+            serviceDate: applied.serviceDate || undefined,
+            selectedPackageId:
+              applied.selectedPackageId === ""
+                ? undefined
+                : Number(applied.selectedPackageId),
+            pageNumber: page + 1, // MUI 0-based → API 1-based
+            pageSize,
+          },
+          controller.signal
+        );
 
         setBookings(res.data);
         setTotalCount(res.totalCount);
       } catch (err: unknown) {
-        // Ignore aborts — they're expected when the page changes fast
         if (err instanceof Error && err.name === "CanceledError") return;
         setError(err instanceof Error ? err.message : "Failed to load bookings");
       } finally {
         setLoading(false);
       }
-    }
+    })();
 
-    load();
+    return () => controller.abort();
+  }, [
+    debouncedSearch,
+    applied.status,
+    applied.serviceDate,
+    applied.selectedPackageId,
+    page,
+    pageSize,
+  ]);
 
-    return () => controller.abort();   // cancel the request if page changes/unmounts
-  }, [page, pageSize]);                //  re-run when these change
+  // ============================================================
+  // Handlers
+  // ============================================================
+  const handleFilterChange = <K extends keyof FiltersState>(
+    key: K,
+    value: FiltersState[K]
+  ) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  };
 
-  // ---- Menu handlers ----
-  const handleOpenMenu = (e: React.MouseEvent<HTMLElement>, booking: Booking) => {
+  // Apply all draft filters — including search — and reset to page 0
+  const handleSearch = () => {
+    setApplied(draft);
+    setPage(0);
+  };
+
+  const handleClearFilters = () => {
+    setDraft(EMPTY_FILTERS);
+    setApplied(EMPTY_FILTERS);
+    setPage(0);
+  };
+
+  const hasAppliedFilters = useMemo(
+    () =>
+      applied.searchTerm !== "" ||
+      applied.status !== "" ||
+      applied.serviceDate !== "" ||
+      applied.selectedPackageId !== "" ||
+      debouncedSearch !== "",
+    [applied, debouncedSearch]
+  );
+
+  const packageOptions = useMemo(
+    () =>
+      packages.map((p) => ({
+        id: p.id,
+        title: getPackageTitle(p, "en"),
+      })),
+    [packages]
+  );
+
+  const handleOpenMenu = (
+    e: React.MouseEvent<HTMLElement>,
+    booking: Booking
+  ) => {
     e.stopPropagation();
     setMenuAnchor(e.currentTarget);
     setMenuBooking(booking);
@@ -97,7 +188,6 @@ export default function Bookings() {
     if (!menuBooking) return;
     const current = menuBooking;
     handleCloseMenu();
-
     try {
       await updateBookingStatus(current.bookingId, newStatus);
       setBookings((prev) =>
@@ -111,31 +201,31 @@ export default function Bookings() {
     }
   };
 
-  // ---- Pagination handlers ----
-  const handlePageChange = (_: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
-  const handlePageSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPageSize(parseInt(e.target.value, 10));
-    setPage(0);   // reset to first page when size changes
-  };
-
-  // ---- Render ----
+  // ============================================================
+  // Render
+  // ============================================================
   return (
     <Box>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}>
         <Typography variant="h5">Bookings</Typography>
-
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            {totalCount} total
-          </Typography>
-          <Button variant="contained" sx={{ color: "white", backgroundColor: "#000080",textTransform: "none" }} startIcon={<AddIcon />}>
-            New Booking
-          </Button>
-        </Box>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ alignSelf: "center" }}
+        >
+          {totalCount} total
+        </Typography>
       </Box>
+
+      <BookingsFilters
+        draft={draft}
+        onChange={handleFilterChange}
+        onSearch={handleSearch}
+        onClear={handleClearFilters}
+        packageOptions={packageOptions}
+        packagesLoading={packagesLoading}
+        hasAppliedFilters={hasAppliedFilters}
+      />
 
       {loading && (
         <Box sx={{ display: "flex", justifyContent: "center", py: 6 }}>
@@ -146,72 +236,26 @@ export default function Bookings() {
       {error && <Alert severity="error">{error}</Alert>}
 
       {!loading && !error && (
-        <Paper>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Booking ID</TableCell>
-                  <TableCell>Package</TableCell>
-                  <TableCell align="right">Est. Hours</TableCell>
-                  <TableCell>Service Date</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Customer</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Phone</TableCell>
-                  <TableCell align="right">Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {bookings.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} align="center">
-                      No bookings found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  bookings.map((b) => (
-                    <TableRow key={b.bookingId} hover>
-                      <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>
-                        {b.bookingId.slice(0, 8)}…
-                      </TableCell>
-                      <TableCell>{b.packageName}</TableCell>
-                      <TableCell align="right">{b.estimatedHours}</TableCell>
-                      <TableCell>{formatDate(b.serviceDate)}</TableCell>
-                      <TableCell><StatusChip status={b.status} /></TableCell>
-                      <TableCell>{b.fullName}</TableCell>
-                      <TableCell>{b.email}</TableCell>
-                      <TableCell>{b.phone}</TableCell>
-                      <TableCell align="right">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleOpenMenu(e, b)}
-                          aria-label="row actions"
-                        >
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          <TablePagination
-            component="div"
-            count={totalCount}
-            page={page}
-            onPageChange={handlePageChange}
-            rowsPerPage={pageSize}
-            onRowsPerPageChange={handlePageSizeChange}
-            rowsPerPageOptions={[6, 12, 24, 48]}
-          />
-        </Paper>
+        <BookingsTable
+          bookings={bookings}
+          totalCount={totalCount}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(n) => {
+            setPageSize(n);
+            setPage(0);
+          }}
+          onMenu={handleOpenMenu}
+        />
       )}
 
-      {/* Menu */}
-      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleCloseMenu}>
+      {/* ===== Row actions menu ===== */}
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={handleCloseMenu}
+      >
         <MenuItem onClick={handleView}>View details</MenuItem>
         <MenuItem onClick={() => handleStatusChange("Confirmed")}>
           Mark as Confirmed
@@ -227,7 +271,7 @@ export default function Bookings() {
         </MenuItem>
       </Menu>
 
-      {/* Snackbar */}
+      {/* ===== Feedback toast ===== */}
       <Snackbar
         open={Boolean(snack)}
         autoHideDuration={2500}
@@ -235,31 +279,5 @@ export default function Bookings() {
         message={snack}
       />
     </Box>
-  );
-}
-
-
-// ---- Helper ----
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("fi-FI", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function StatusChip({ status }: { status: string }) {
-  const colorMap: Record<string, "default" | "warning" | "info" | "success" | "error"> = {
-    Pending: "warning",
-    Approved: "info",
-    Completed: "success",
-    Cancelled: "error",
-  };
-  return (
-    <Chip
-      label={status}
-      size="small"
-      color={colorMap[status] ?? "default"}
-    />
   );
 }

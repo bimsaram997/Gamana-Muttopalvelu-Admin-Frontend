@@ -63,3 +63,13 @@ export interface Booking {
 
   routeResultDto: RouteResultDto;
 }
+
+export interface BookingQueryParams {
+  searchTerm?: string;
+  status?: string;
+  serviceDate?: string;      // ISO date "YYYY-MM-DD"
+  selectedPackageId?: number;
+  createdAt?: string;        // ISO date
+  pageNumber?: number;
+  pageSize?: number;
+}
