@@ -73,3 +73,23 @@ export interface BookingQueryParams {
   pageNumber?: number;
   pageSize?: number;
 }
+
+export interface BookingDetailResponseDto {
+    bookingId: string;
+    selectedPackageId: number;
+    estimatedHours: number;
+    includeCleaning: boolean;
+    notes: string | null;
+    serviceDate: string;
+    totalPrice: number;
+    status: string;
+    createdAt: string;
+    userId: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    pickupLocations: AddressDto[];
+    dropoffLocation: AddressDto | null;
+    routeResultDto: RouteResultDto;
+     adminNotes: string | null;
+}

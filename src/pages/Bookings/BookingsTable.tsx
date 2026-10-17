@@ -13,7 +13,8 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import type { Booking } from "../../types/booking";
 import StatusChip from "../../components/common/StatusChip";
 import { BOOKING_STATUS_COLORS } from "../../utils/statusColor";
-
+import { Link } from "react-router-dom";
+import { Link as MuiLink } from "@mui/material"; // For styling the link
 interface Props {
   bookings: Booking[];
   totalCount: number;
@@ -61,7 +62,15 @@ export default function BookingsTable({
               bookings.map((b) => (
                 <TableRow key={b.bookingId} hover>
                   <TableCell sx={{ fontFamily: "monospace", fontSize: 12 }}>
-                    {b.bookingId.slice(0, 8)}…
+                    <MuiLink
+                      component={Link}
+                      to={`/bookings/${b.bookingId}`}
+                      underline="hover"
+                      color="primary"
+                      sx={{ fontWeight: 600 }}
+                    >
+                      {b.bookingId.slice(0, 8)}…
+                    </MuiLink>
                   </TableCell>
                   <TableCell>{b.packageName}</TableCell>
                   <TableCell align="right">{b.estimatedHours}</TableCell>

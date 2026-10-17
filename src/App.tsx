@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard/Dashboard";
 import Bookings from "./pages/Bookings/Bookings";
 import Offers from "./pages/Offers/Offers";
 import Invoices from "./pages/Invoices/Invoices";
+import BookingDetails from "./pages/Bookings/BookingDetails";
 import Settings from "./pages/Settings/Settings";
 import { AuthProvider } from "./context/AuthProvider";
 import PublicRoute from "./components/layout/PublicRoute";
@@ -26,6 +27,7 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/bookings" element={<Bookings />} />
+               <Route path="/bookings/:id" element={<BookingDetails />} />
               <Route path="/offers" element={<Offers />} />
               <Route path="/invoices" element={<Invoices />} />
               <Route path="/settings" element={<Settings />} />

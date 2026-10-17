@@ -57,7 +57,7 @@ export default function BookingsFilters({
           label="Search"
           placeholder="Name, email, phone…"
           size="small"
-          sx={{ width: { xs: "75%", md: "75%" } }}
+          sx={{ width: { xs: "50%", md: "50%" } }}
           value={draft.searchTerm}
           onChange={(e) => onChange("searchTerm", e.target.value)}
           onKeyDown={handleKeyDown}
@@ -72,7 +72,6 @@ export default function BookingsFilters({
           >
             <MenuItem value=""><em>All</em></MenuItem>
             <MenuItem value="Pending">Pending</MenuItem>
-            <MenuItem value="Approved">Approved</MenuItem>
             <MenuItem value="Confirmed">Confirmed</MenuItem>
             <MenuItem value="Completed">Completed</MenuItem>
             <MenuItem value="Cancelled">Cancelled</MenuItem>

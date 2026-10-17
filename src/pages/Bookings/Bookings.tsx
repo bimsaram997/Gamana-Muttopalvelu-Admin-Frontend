@@ -31,12 +31,11 @@ export default function Bookings() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // 👇 1. Add a refresh trigger
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // ---- Filters ----
-  // `draft` = what the user is editing in the UI
-  // `applied` = what was submitted with the Search button
-  // Search term is excluded from `applied` — it flows through the debounce
-  // directly into the fetch effect for a live-search feel.
   const [draft, setDraft] = useState<FiltersState>(EMPTY_FILTERS);
   const [applied, setApplied] = useState<FiltersState>(EMPTY_FILTERS);
 
@@ -79,7 +78,7 @@ export default function Bookings() {
   }, []);
 
   // ============================================================
-  // Fetch bookings whenever search / applied filters / paging change
+  // Fetch bookings (Re-integrated into the effect to satisfy ESLint)
   // ============================================================
   useEffect(() => {
     const controller = new AbortController();
@@ -91,14 +90,14 @@ export default function Bookings() {
 
         const res = await getAllBookings(
           {
-            searchTerm: debouncedSearch || undefined,       // 👈 live search
-            status: applied.status || undefined,            // 👈 click-to-apply
+            searchTerm: debouncedSearch || undefined,
+            status: applied.status || undefined,
             serviceDate: applied.serviceDate || undefined,
             selectedPackageId:
               applied.selectedPackageId === ""
                 ? undefined
                 : Number(applied.selectedPackageId),
-            pageNumber: page + 1, // MUI 0-based → API 1-based
+            pageNumber: page + 1,
             pageSize,
           },
           controller.signal
@@ -117,11 +116,10 @@ export default function Bookings() {
     return () => controller.abort();
   }, [
     debouncedSearch,
-    applied.status,
-    applied.serviceDate,
-    applied.selectedPackageId,
+    applied,
     page,
     pageSize,
+    refreshKey, // 👈 2. Add refreshKey to dependencies
   ]);
 
   // ============================================================
@@ -134,7 +132,6 @@ export default function Bookings() {
     setDraft((prev) => ({ ...prev, [key]: value }));
   };
 
-  // Apply all draft filters — including search — and reset to page 0
   const handleSearch = () => {
     setApplied(draft);
     setPage(0);
@@ -188,14 +185,15 @@ export default function Bookings() {
     if (!menuBooking) return;
     const current = menuBooking;
     handleCloseMenu();
+    
     try {
-      await updateBookingStatus(current.bookingId, newStatus);
-      setBookings((prev) =>
-        prev.map((b) =>
-          b.bookingId === current.bookingId ? { ...b, status: newStatus } : b
-        )
-      );
-      setSnack(`Booking marked as ${newStatus}`);
+      const updated = await updateBookingStatus(current.bookingId, { status: newStatus });
+      
+      if (updated) {
+        setSnack(`Booking marked as ${newStatus}`);
+        // 👇 3. Trigger the refresh by incrementing the key
+        setRefreshKey((prev) => prev + 1);
+      }
     } catch (err: unknown) {
       setSnack(err instanceof Error ? err.message : "Failed to update status");
     }
