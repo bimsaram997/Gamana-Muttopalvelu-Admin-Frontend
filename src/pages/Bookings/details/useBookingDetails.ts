@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { getBookingById, updateBooking, type UpdateBookingPayload } from "../../../api/bookings";
-import { getAllPackages } from "../../../api/packages";
+import { getDropdownAllPackages } from "../../../api/packages";
 import type { AddressDto, BookingDetailResponseDto } from "../../../types/booking";
-import type { AdminPackage } from "../../../types/package";
+import type { AdminPackageResponseDto } from "../../../types/package";
 
 export type Mode = "view" | "edit";
 
@@ -16,7 +16,7 @@ export function useBookingDetails(id: string | undefined) {
   const [error, setError] = useState<string | null>(null);
   const [snack, setSnack] = useState<string | null>(null);
 
-  const [packages, setPackages] = useState<AdminPackage[]>([]);
+  const [packages, setPackages] = useState<AdminPackageResponseDto[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
 
   // Fetch booking
@@ -47,7 +47,7 @@ export function useBookingDetails(id: string | undefined) {
     (async () => {
       try {
         setPackagesLoading(true);
-        const data = await getAllPackages();
+        const data = await getDropdownAllPackages();
         setPackages(
           data
             .filter((p) => p.isActive)
