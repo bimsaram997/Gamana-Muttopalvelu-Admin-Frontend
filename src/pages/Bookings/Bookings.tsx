@@ -9,10 +9,10 @@ import {
   Alert,
   Snackbar,
 } from "@mui/material";
-import { getAllBookings, updateBookingStatus } from "../../api/bookings";
-import { getAllPackages, getPackageTitle } from "../../api/packages";
+import { getAllBookings, updateBooking,  type UpdateBookingPayload } from "../../api/bookings";
+import { getDropdownAllPackages, getPackageTitle } from "../../api/packages";
 import type { Booking } from "../../types/booking";
-import type { AdminPackage } from "../../types/package";
+import type { AdminPackageResponseDto } from "../../types/package";
 import { useDebounce } from "../../hooks/useDebounce";
 import BookingsFilters, { type FiltersState } from "./BookingsFilters";
 import BookingsTable from "./BookingsTable";
@@ -48,7 +48,7 @@ export default function Bookings() {
   const [totalCount, setTotalCount] = useState(0);
 
   // ---- Packages dropdown ----
-  const [packages, setPackages] = useState<AdminPackage[]>([]);
+  const [packages, setPackages] = useState<AdminPackageResponseDto[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
 
   // ---- Menu / Snackbar ----
@@ -64,7 +64,7 @@ export default function Bookings() {
     (async () => {
       try {
         setPackagesLoading(true);
-        const data = await getAllPackages();
+        const data = await getDropdownAllPackages();
         if (!cancelled) setPackages(data);
       } catch {
         if (!cancelled) setPackages([]);
@@ -185,9 +185,25 @@ export default function Bookings() {
     if (!menuBooking) return;
     const current = menuBooking;
     handleCloseMenu();
+
+    const payload: UpdateBookingPayload = {
+    status: newStatus,
+    serviceDate: current.serviceDate,
+    selectedPackageId: current.selectedPackageId ?? 0,
+    estimatedHours: current.estimatedHours,
+    includeCleaning: current.includeCleaning,
+    totalPrice: current.totalPrice,
+    notes: current.notes,
+    fullName: current.fullName,
+    email: current.email,
+    phone: current.phone,
+    pickupLocations: current.pickupLocations,
+    dropoffLocation: current.dropoffLocation,
+    adminNotes: "",
+  };
     
     try {
-      const updated = await updateBookingStatus(current.bookingId, { status: newStatus });
+      const updated = await updateBooking(current.bookingId, payload);
       
       if (updated) {
         setSnack(`Booking marked as ${newStatus}`);

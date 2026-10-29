@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
     AppBar,
@@ -11,28 +12,52 @@ import {
     Box,
     Button,
     Divider,
+    Collapse,
 } from "@mui/material";
+import ExpandLess from "@mui/icons-material/ExpandLess";
+import ExpandMore from "@mui/icons-material/ExpandMore";
 import { useAuth } from "../../hooks/useAuth";
 
 const DRAWER_WIDTH = 240;
 
-const navItems = [
+const mainNavItems = [
     { label: "Dashboard", path: "/dashboard" },
     { label: "Bookings", path: "/bookings" },
     { label: "Offers", path: "/offers" },
     { label: "Invoices", path: "/invoices" },
-    { label: "Global Settings", path: "/settings" },
+];
+
+const settingsSubItems = [
+    { label: "Packages", path: "/settings/packages" },
+    { label: "Key Services", path: "/settings/key-services" },
+    { label: "Process Steps", path: "/settings/process-steps" },
+    { label: "Detailed Steps", path: "/settings/detailed-steps" },
+    { label: "Reviews", path: "/settings/reviews" },
+    { label: "Form Options", path: "/settings/form-options" },
 ];
 
 export default function Layout() {
     const navigate = useNavigate();
-    const location = useLocation(); //give currentt URL
+    const location = useLocation();
+    const { user, logout } = useAuth();
 
-    const { user, logout } = useAuth();   // 👈 pull user + logout from context
+    // Track if the settings menu is manually toggled open
+    const [settingsOpen, setSettingsOpen] = useState(false);
+
+    // Check if we are inside any settings route
+    const isSettingsRoute = location.pathname.startsWith("/settings");
+    
+    // The menu should be open if the user opened it OR if they are on a settings route
+    const isMenuExpanded = settingsOpen || isSettingsRoute;
 
     const handleLogout = () => {
-        logout();                            // 👈 updates context + clears storage
+        logout();
         navigate("/login");
+    };
+
+    const handleSettingsClick = () => {
+        // Just toggle the menu — do NOT navigate
+        setSettingsOpen(!settingsOpen);
     };
 
     return (
@@ -43,7 +68,6 @@ export default function Layout() {
                         Gamanamuutto Admin
                     </Typography>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        {/* Show logged-in user's name */}
                         {user && (
                             <Typography variant="body2" sx={{ opacity: 0.85 }}>
                                 {user.name}
@@ -53,7 +77,6 @@ export default function Layout() {
                             Logout
                         </Button>
                     </Box>
-
                 </Toolbar>
             </AppBar>
 
@@ -69,36 +92,63 @@ export default function Layout() {
                     },
                 }}
             >
-                <Toolbar /> {/* spacer so content starts below AppBar */}
+                <Toolbar />
                 <Box sx={{ overflow: "auto" }}>
                     <List>
-                        {navItems.map((item) => {
-                            const selected = location.pathname === item.path;
-                            return (
-                                <ListItem key={item.path} disablePadding>
-                                    <ListItemButton
-                                        component={Link}
-                                        to={item.path}
-                                        selected={selected}
-                                    >
-                                        <ListItemText primary={item.label} />
-                                    </ListItemButton>
-                                </ListItem>
-                            );
-                        })}
+                        {/* Main Items */}
+                        {mainNavItems.map((item) => (
+                            <ListItem key={item.path} disablePadding>
+                                <ListItemButton
+                                    component={Link}
+                                    to={item.path}
+                                    selected={
+                                        item.path === "/bookings" 
+                                            ? location.pathname.startsWith("/bookings")
+                                            : location.pathname === item.path
+                                    }
+                                >
+                                    <ListItemText primary={item.label} />
+                                </ListItemButton>
+                            </ListItem>
+                        ))}
+
+                        {/* Global Settings Collapsible Menu */}
+                        <ListItem disablePadding>
+                            <ListItemButton onClick={handleSettingsClick}>
+                                <ListItemText primary="Global Settings" />
+                                {isMenuExpanded ? <ExpandLess /> : <ExpandMore />}
+                            </ListItemButton>
+                        </ListItem>
+                        
+                        <Collapse in={isMenuExpanded} timeout="auto" unmountOnExit>
+                            <List component="div" disablePadding>
+                                {settingsSubItems.map((subItem) => (
+                                    <ListItem key={subItem.path} disablePadding>
+                                        <ListItemButton
+                                            component={Link}
+                                            to={subItem.path}
+                                            sx={{ pl: 4 }} // Indent
+                                            selected={location.pathname === subItem.path}
+                                        >
+                                            <ListItemText primary={subItem.label} />
+                                        </ListItemButton>
+                                    </ListItem>
+                                ))}
+                            </List>
+                        </Collapse>
                     </List>
                     <Divider />
                 </Box>
             </Drawer>
+
             {/* ===== Main content ===== */}
             <Box
                 component="main"
                 sx={{ flexGrow: 1, bgcolor: "background.default", p: 3 }}
             >
-                <Toolbar /> {/* spacer for the fixed AppBar */}
+                <Toolbar />
                 <Outlet />
             </Box>
         </Box>
     );
-
 }
