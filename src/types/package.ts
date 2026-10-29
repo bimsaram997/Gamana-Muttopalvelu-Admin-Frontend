@@ -12,11 +12,12 @@ export interface FeatureTranslation {
 }
 
 export interface AdminFeature {
-  // add the id/order fields your DTO has — this is a partial
+  id: number;
+  displayOrder: number;
   translations: FeatureTranslation[];
 }
 
-export interface AdminPackage {
+export interface AdminPackageResponseDto {
   id: number;
   ratePerHour: number;
   isPopular: boolean;
@@ -24,4 +25,11 @@ export interface AdminPackage {
   isActive: boolean;
   translations: PackageTranslation[];
   features: AdminFeature[];
+}
+
+export interface PackageQueryParams {
+  title?: string;
+  status?: string;
+ pageNumber?: number;
+pageSize?: number;
 }
