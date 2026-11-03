@@ -262,7 +262,7 @@ export default function PackagesSettings() {
                           <TableCell>{pkg.id}</TableCell>
                           <TableCell>
                             <Stack sx={{ direction: "row", spacing: 1, alignItems: "center" }}>
-                              <Typography sx={{ fontWeight: "bold" }}>
+                              <Typography >
                                 {getPackageTitle(pkg, "en")}
                               </Typography>
                               {pkg.isPopular && (
