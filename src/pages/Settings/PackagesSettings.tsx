@@ -29,8 +29,12 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
+import AddIcon from "@mui/icons-material/Add";
+import EditIcon from "@mui/icons-material/Edit";
 import { getAllPackages, getPackageTitle } from "../../api/packages";
 import type { AdminPackageResponseDto } from "../../types/package";
+import PackageFormModal from "./PackageFormModal"; // 👈 Import the modal
 
 export default function PackagesSettings() {
   // ---- Data State ----
@@ -47,11 +51,18 @@ export default function PackagesSettings() {
   const [appliedStatus, setAppliedStatus] = useState("");
 
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(2);
+  const [pageSize, setPageSize] = useState(5);
+  
+  // 👇 State to trigger table refresh after save
+  const [refreshKey, setRefreshKey] = useState(0); 
 
   // ---- Expansion State ----
   const [expandedPkg, setExpandedPkg] = useState<number | null>(null);
   const [expandedFeat, setExpandedFeat] = useState<Record<string, boolean>>({});
+
+  // ---- Modal State ----
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingPkg, setEditingPkg] = useState<AdminPackageResponseDto | null>(null);
 
   // ---- Fetch Data from Server ----
   useEffect(() => {
@@ -83,13 +94,22 @@ export default function PackagesSettings() {
     })();
 
     return () => controller.abort();
-  }, [appliedTitle, appliedStatus, page, pageSize]);
+  }, [appliedTitle, appliedStatus, page, pageSize, refreshKey]); // 👈 Added refreshKey
 
   // ---- Handlers ----
   const handleSearch = () => {
     setAppliedTitle(draftTitle);
     setAppliedStatus(draftStatus);
     setPage(0);
+  };
+
+  const handleClear = () => {
+    setDraftTitle("");
+    setDraftStatus("");
+    setAppliedTitle("");
+    setAppliedStatus("");
+    setPage(0);
+    setExpandedPkg(null);
   };
 
   const handleChangePage = (_: unknown, newPage: number) => {
@@ -112,16 +132,32 @@ export default function PackagesSettings() {
     setExpandedFeat((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  // 👇 Refresh Table after saving
+  const handleSaved = () => {
+    setRefreshKey((prev) => prev + 1);
+    setModalOpen(false);
+  };
+
   // ---- Render ----
   return (
     <Box>
-      <Typography sx={{ fontWeight: "bold", mb: 3, typography: "h4" }}>
-        Packages Settings
-      </Typography>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+        <Typography sx={{ fontWeight: "bold", typography: "h4" }}>
+          Packages Settings
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setEditingPkg(null);
+            setModalOpen(true);
+          }}
+        >
+          New Package
+        </Button>
+      </Box>
 
       {/* Filters Bar */}
-   {/* Filters Bar */}
-     {/* Filters Bar */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Stack 
           sx={{ 
@@ -154,14 +190,25 @@ export default function PackagesSettings() {
             </Select>
           </FormControl>
 
-          <Button
-            variant="contained"
-            startIcon={<SearchIcon />}
-            onClick={handleSearch}
-            sx={{ height: 40, minWidth: 120, width: { xs: "100%", sm: "auto" } }}
-          >
-            Search
-          </Button>
+          <Stack sx={{ flexDirection: "row", gap: 1, width: { xs: "100%", sm: "auto" } }}>
+            <Button
+              variant="contained"
+              startIcon={<SearchIcon />}
+              onClick={handleSearch}
+              sx={{ height: 40, flex: 1 }}
+            >
+              Search
+            </Button>
+            <Button
+              variant="outlined"
+              color="inherit"
+              startIcon={<ClearIcon />}
+              onClick={handleClear}
+              sx={{ height: 40, flex: 1 }}
+            >
+              Clear
+            </Button>
+          </Stack>
         </Stack>
       </Paper>
 
@@ -187,12 +234,13 @@ export default function PackagesSettings() {
                   <TableCell align="right">Rate / Hour</TableCell>
                   <TableCell align="right">Features</TableCell>
                   <TableCell align="center">Status</TableCell>
+                  <TableCell align="center">Actions</TableCell> {/* 👈 Added Actions column */}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {packages.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={7} align="center"> {/* 👈 Changed colSpan to 7 */}
                       No packages found.
                     </TableCell>
                   </TableRow>
@@ -231,10 +279,25 @@ export default function PackagesSettings() {
                               color={pkg.isActive ? "success" : "default"}
                             />
                           </TableCell>
+                          
+                          {/* 👇 Edit Button */}
+                          <TableCell align="center">
+                            <IconButton
+                              size="small"
+                              color="primary"
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevents row expansion
+                                setEditingPkg(pkg);
+                                setModalOpen(true);
+                              }}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </TableCell>
                         </TableRow>
 
                         <TableRow>
-                          <TableCell sx={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
+                          <TableCell sx={{ paddingBottom: 0, paddingTop: 0 }} colSpan={7}> {/* 👈 Changed colSpan to 7 */}
                             <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                               <Box sx={{ margin: 2, p: 2, bgcolor: "grey.50", borderRadius: 1 }}>
                                 
@@ -315,10 +378,19 @@ export default function PackagesSettings() {
             onPageChange={handleChangePage}
             rowsPerPage={pageSize}
             onRowsPerPageChange={handleChangeRowsPerPage}
-            rowsPerPageOptions={[6, 12, 24, 48]}
+            rowsPerPageOptions={[2, 6, 12, 24, 48]}
           />
         </Paper>
       )}
+
+      {/* 👇 The Key Forces a Complete Reset of the Modal when editing different packages */}
+      <PackageFormModal
+        key={editingPkg ? editingPkg.id : "new"}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSaved={handleSaved}
+        packageToEdit={editingPkg}
+      />
     </Box>
   );
 }
